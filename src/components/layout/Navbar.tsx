@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   Wallet,
+  LogOut,
 } from 'lucide-react';
 import { useMoneyMate } from '@/context/MoneyMateContext';
 import { formatMonthYear, OWNER_EMAIL } from '@/lib/utils';
@@ -20,7 +21,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
-  const { selectedMonth, setSelectedMonth, profile } = useMoneyMate();
+  const { selectedMonth, setSelectedMonth, profile, logout } = useMoneyMate();
 
   const handlePrevMonth = () => {
     const [year, month] = selectedMonth.split('-').map(Number);
@@ -108,17 +109,25 @@ export const Navbar: React.FC<NavbarProps> = ({ sidebarOpen, setSidebarOpen }) =
 
         <div className="hidden md:flex items-center gap-2.5 pl-2 border-l border-zinc-800">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-600 flex items-center justify-center text-xs font-bold text-white border border-zinc-500/40">
-            {profile.fullName.charAt(0)}
+            {(profile.fullName || 'U').charAt(0).toUpperCase()}
           </div>
           <div className="text-left">
             <div className="flex items-center gap-1">
               <span className="text-xs font-semibold text-zinc-200">{profile.fullName}</span>
-              <span className="text-[10px] text-emerald-400 font-mono">(Owner)</span>
+              <span className="text-[10px] text-emerald-400 font-mono">(User)</span>
             </div>
             <p className="text-[10px] text-zinc-500 font-mono truncate max-w-[120px]">
-              {OWNER_EMAIL}
+              {profile.email}
             </p>
           </div>
+
+          <button
+            onClick={logout}
+            className="ml-2 p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>

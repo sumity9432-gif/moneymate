@@ -22,6 +22,7 @@ export const SettingsView: React.FC = () => {
   const {
     profile,
     updateProfile,
+    clearAllData,
     resetToDemoData,
     exportDataJSON,
     authEmail,
@@ -69,25 +70,25 @@ export const SettingsView: React.FC = () => {
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white">Single-User Private Access Control</h2>
-              <p className="text-xs text-zinc-400">Strict owner authentication active</p>
+              <h2 className="text-sm font-bold text-white">Private Isolated Account Security</h2>
+              <p className="text-xs text-zinc-400">Strict authenticated access active</p>
             </div>
           </div>
 
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Enforced
+            Active
           </span>
         </div>
 
         <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div>
-            <span className="text-zinc-500 block">Designated Single Owner:</span>
-            <span className="font-mono text-zinc-200 font-semibold">{OWNER_EMAIL}</span>
+            <span className="text-zinc-500 block">Authenticated Account:</span>
+            <span className="font-mono text-zinc-200 font-semibold">{profile.email}</span>
           </div>
           <div>
             <span className="text-zinc-500 block">Access Model:</span>
-            <span className="text-zinc-200 font-semibold">Private – One User Only (Full Admin)</span>
+            <span className="text-zinc-200 font-semibold">Private & Segregated Ledger</span>
           </div>
           <div>
             <span className="text-zinc-500 block">Database Security:</span>
@@ -218,6 +219,19 @@ export const SettingsView: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <button
+            onClick={() => {
+              if (confirm('Clear all test data and start fresh with a clean ledger?')) {
+                clearAllData();
+                alert('All data has been cleared! Your MoneyMate ledger is now completely fresh.');
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold transition-all shadow-md active:scale-95"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Wipe All Test Data (Clean Slate)
+          </button>
+
+          <button
             onClick={exportDataJSON}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold transition-all active:scale-95"
           >
@@ -227,14 +241,13 @@ export const SettingsView: React.FC = () => {
 
           <button
             onClick={() => {
-              if (confirm('Reset to realistic Indian financial demo data tailored for Sumit?')) {
+              if (confirm('Load blueprint demo data for testing?')) {
                 resetToDemoData();
               }
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold transition-all active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs font-medium transition-all"
           >
-            <RefreshCw className="w-4 h-4" />
-            Reset to Blueprint Defaults
+            Load Sample Demo Data
           </button>
         </div>
       </div>

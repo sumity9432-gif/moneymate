@@ -9,7 +9,26 @@ export interface UserProfile {
   annualSavingsTarget: number;
   currency: string;
   timezone: string;
+  isOnboarded?: boolean;
   createdAt: string;
+}
+
+export interface OnboardingData {
+  monthlySalary: number;
+  annualSavingsTarget: number;
+  firstLoan?: {
+    loanName: string;
+    lender: string;
+    outstandingAmount: number;
+    monthlyEmi: number;
+    dueDateDay: number;
+  };
+  firstWishlist?: {
+    itemName: string;
+    targetPrice: number;
+    monthlyContribution: number;
+    targetDate: string;
+  };
 }
 
 export type IncomeType = 'salary' | 'bonus' | 'freelance' | 'investment' | 'other';

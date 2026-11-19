@@ -12,7 +12,9 @@ import {
   BarChart3,
   Settings,
   Sparkles,
+  LogOut,
 } from 'lucide-react';
+import { useMoneyMate } from '@/context/MoneyMateContext';
 
 export type NavTab =
   | 'overview'
@@ -38,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { logout } = useMoneyMate();
   const navItems = [
     { id: 'overview' as NavTab, label: 'Overview', icon: LayoutDashboard },
     { id: 'income' as NavTab, label: 'Income & Salary', icon: Wallet },
@@ -101,6 +104,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             );
           })}
+
+          <button
+            onClick={() => {
+              logout();
+              onClose();
+            }}
+            className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent transition-all mt-2"
+          >
+            <LogOut className="w-4 h-4 text-zinc-400 group-hover:text-rose-400 transition-colors" />
+            <span>Sign Out</span>
+          </button>
         </div>
 
         {/* Bottom philosophy quote */}

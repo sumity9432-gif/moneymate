@@ -193,7 +193,22 @@ export const LoansEmiView: React.FC = () => {
           Active Loans & EMIs ({activeLoans.length})
         </h2>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {activeLoans.length === 0 ? (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-12 text-center">
+            <CreditCard className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+            <h3 className="text-sm font-bold text-zinc-300">No active loans or debts</h3>
+            <p className="text-xs text-zinc-500 max-w-sm mx-auto mt-1 mb-4">
+              You are currently debt-free, or haven&apos;t added your borrowings yet. Add loans to track EMIs and interest-adjusted repayments.
+            </p>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold transition-all shadow-md"
+            >
+              + Add First Loan / EMI
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {activeLoans.map((loan) => {
             const paidPct = Math.round(
               ((loan.originalAmount - loan.outstandingAmount) / loan.originalAmount) * 100
@@ -320,6 +335,7 @@ export const LoansEmiView: React.FC = () => {
             );
           })}
         </div>
+        )}
       </div>
 
       {/* EMI Payment History Log */}

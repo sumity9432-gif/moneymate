@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   UserProfile,
   Income,
@@ -10,6 +10,7 @@ import {
   SavingsGoal,
   WishlistItem,
   AppNotification,
+  OnboardingData,
 } from '@/types';
 import {
   initialProfile,
@@ -21,17 +22,19 @@ import {
   initialWishlist,
   initialNotifications,
 } from '@/data/seedData';
-import { getCurrentMonthYear, calculateEmiSplit, OWNER_EMAIL } from '@/lib/utils';
-import { isAuthorizedOwner } from '@/lib/supabase';
+import { getCurrentMonthYear, calculateEmiSplit } from '@/lib/utils';
 
 interface MoneyMateContextType {
   // Authentication & Profile
   profile: UserProfile;
   isOwnerAuthenticated: boolean;
   authEmail: string;
-  loginAsOwner: () => void;
+  signUp: (email: string, fullName: string, password?: string) => Promise<boolean>;
+  signIn: (email: string, password?: string) => Promise<boolean>;
+  signInWithGoogle: (email?: string, fullName?: string) => Promise<boolean>;
   logout: () => void;
   updateProfile: (updated: Partial<UserProfile>) => void;
+  completeOnboarding: (data: OnboardingData) => void;
 
   // Selected Month Filter
   selectedMonth: string; // YYYY-MM
@@ -85,32 +88,25 @@ interface MoneyMateContextType {
   addNotification: (notif: Omit<AppNotification, 'id' | 'date' | 'isRead'>) => void;
 
   // Utility Actions
+  clearAllData: () => void;
   resetToDemoData: () => void;
   exportDataJSON: () => void;
 }
 
 const MoneyMateContext = createContext<MoneyMateContextType | null>(null);
 
-const STORAGE_KEYS = {
-  PROFILE: 'moneymate_profile_v1',
-  INCOMES: 'moneymate_incomes_v1',
-  EXPENSES: 'moneymate_expenses_v1',
-  LOANS: 'moneymate_loans_v1',
-  EMI_PAYMENTS: 'moneymate_emi_payments_v1',
-  SAVINGS: 'moneymate_savings_v1',
-  WISHLIST: 'moneymate_wishlist_v1',
-  NOTIFICATIONS: 'moneymate_notifications_v1',
-  AUTH: 'moneymate_auth_status_v1',
-};
+const REGISTRY_KEY = 'moneymate_users_registry_v1';
+const CURRENT_SESSION_KEY = 'moneymate_active_session_v1';
 
 export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isClient, setIsClient] = useState(false);
-  const [authEmail, setAuthEmail] = useState<string>(OWNER_EMAIL);
-  const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState<boolean>(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-11');
+  const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState<boolean>(false);
 
-  // Collections
+  // Active User Profile
   const [profile, setProfile] = useState<UserProfile>(initialProfile);
+
+  // Collections for Active User
   const [incomes, setIncomes] = useState<Income[]>(initialIncomes);
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
   const [loans, setLoans] = useState<Loan[]>(initialLoans);
@@ -119,64 +115,69 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [wishlist, setWishlist] = useState<WishlistItem[]>(initialWishlist);
   const [notifications, setNotifications] = useState<AppNotification[]>(initialNotifications);
 
-  // Initialize and load from LocalStorage
+  // Helper to load a user's isolated data
+  const loadUserData = useCallback((userId: string, userProf: UserProfile) => {
+    setProfile(userProf);
+    try {
+      const storedIncomes = localStorage.getItem(`moneymate_${userId}_incomes`);
+      setIncomes(storedIncomes ? JSON.parse(storedIncomes) : []);
+
+      const storedExpenses = localStorage.getItem(`moneymate_${userId}_expenses`);
+      setExpenses(storedExpenses ? JSON.parse(storedExpenses) : []);
+
+      const storedLoans = localStorage.getItem(`moneymate_${userId}_loans`);
+      setLoans(storedLoans ? JSON.parse(storedLoans) : []);
+
+      const storedPayments = localStorage.getItem(`moneymate_${userId}_emi_payments`);
+      setEmiPayments(storedPayments ? JSON.parse(storedPayments) : []);
+
+      const storedSavings = localStorage.getItem(`moneymate_${userId}_savings`);
+      setSavingsGoals(storedSavings ? JSON.parse(storedSavings) : []);
+
+      const storedWishlist = localStorage.getItem(`moneymate_${userId}_wishlist`);
+      setWishlist(storedWishlist ? JSON.parse(storedWishlist) : []);
+
+      const storedNotifications = localStorage.getItem(`moneymate_${userId}_notifications`);
+      setNotifications(storedNotifications ? JSON.parse(storedNotifications) : []);
+    } catch (e) {
+      console.error('Error reading user data:', e);
+    }
+  }, []);
+
+  // Initialize and check active session
   useEffect(() => {
     setIsClient(true);
     setSelectedMonth(getCurrentMonthYear());
     try {
-      const storedProfile = localStorage.getItem(STORAGE_KEYS.PROFILE);
-      if (storedProfile) setProfile(JSON.parse(storedProfile));
-
-      const storedIncomes = localStorage.getItem(STORAGE_KEYS.INCOMES);
-      if (storedIncomes) setIncomes(JSON.parse(storedIncomes));
-
-      const storedExpenses = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-      if (storedExpenses) setExpenses(JSON.parse(storedExpenses));
-
-      const storedLoans = localStorage.getItem(STORAGE_KEYS.LOANS);
-      if (storedLoans) setLoans(JSON.parse(storedLoans));
-
-      const storedPayments = localStorage.getItem(STORAGE_KEYS.EMI_PAYMENTS);
-      if (storedPayments) setEmiPayments(JSON.parse(storedPayments));
-
-      const storedSavings = localStorage.getItem(STORAGE_KEYS.SAVINGS);
-      if (storedSavings) setSavingsGoals(JSON.parse(storedSavings));
-
-      const storedWishlist = localStorage.getItem(STORAGE_KEYS.WISHLIST);
-      if (storedWishlist) setWishlist(JSON.parse(storedWishlist));
-
-      const storedNotifications = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-      if (storedNotifications) setNotifications(JSON.parse(storedNotifications));
-
-      const storedAuth = localStorage.getItem(STORAGE_KEYS.AUTH);
-      if (storedAuth) {
-        const parsed = JSON.parse(storedAuth);
-        setAuthEmail(parsed.email || OWNER_EMAIL);
-        setIsOwnerAuthenticated(isAuthorizedOwner(parsed.email));
+      const activeSession = localStorage.getItem(CURRENT_SESSION_KEY);
+      if (activeSession) {
+        const sessionUser = JSON.parse(activeSession) as UserProfile;
+        if (sessionUser && sessionUser.id) {
+          loadUserData(sessionUser.id, sessionUser);
+          setIsOwnerAuthenticated(true);
+        }
       }
     } catch (e) {
-      console.error('Error loading stored MoneyMate state:', e);
+      console.error('Error loading session:', e);
     }
-  }, []);
+  }, [loadUserData]);
 
-  // Save changes to LocalStorage
+  // Save changes to current user's isolated storage
   useEffect(() => {
-    if (!isClient) return;
+    if (!isClient || !profile?.id || !isOwnerAuthenticated) return;
     try {
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
-      localStorage.setItem(STORAGE_KEYS.INCOMES, JSON.stringify(incomes));
-      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
-      localStorage.setItem(STORAGE_KEYS.LOANS, JSON.stringify(loans));
-      localStorage.setItem(STORAGE_KEYS.EMI_PAYMENTS, JSON.stringify(emiPayments));
-      localStorage.setItem(STORAGE_KEYS.SAVINGS, JSON.stringify(savingsGoals));
-      localStorage.setItem(STORAGE_KEYS.WISHLIST, JSON.stringify(wishlist));
-      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
-      localStorage.setItem(
-        STORAGE_KEYS.AUTH,
-        JSON.stringify({ email: authEmail, authenticated: isOwnerAuthenticated })
-      );
+      const uid = profile.id;
+      localStorage.setItem(`moneymate_${uid}_profile`, JSON.stringify(profile));
+      localStorage.setItem(`moneymate_${uid}_incomes`, JSON.stringify(incomes));
+      localStorage.setItem(`moneymate_${uid}_expenses`, JSON.stringify(expenses));
+      localStorage.setItem(`moneymate_${uid}_loans`, JSON.stringify(loans));
+      localStorage.setItem(`moneymate_${uid}_emi_payments`, JSON.stringify(emiPayments));
+      localStorage.setItem(`moneymate_${uid}_savings`, JSON.stringify(savingsGoals));
+      localStorage.setItem(`moneymate_${uid}_wishlist`, JSON.stringify(wishlist));
+      localStorage.setItem(`moneymate_${uid}_notifications`, JSON.stringify(notifications));
+      localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(profile));
     } catch (e) {
-      console.error('Error persisting MoneyMate state:', e);
+      console.error('Error persisting active user state:', e);
     }
   }, [
     isClient,
@@ -188,30 +189,167 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     savingsGoals,
     wishlist,
     notifications,
-    authEmail,
     isOwnerAuthenticated,
   ]);
 
-  // Auth Handlers
-  const loginAsOwner = () => {
-    setAuthEmail(OWNER_EMAIL);
+  // Auth Operations
+  const signUp = async (email: string, fullName: string): Promise<boolean> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newProfile: UserProfile = {
+      id: userId,
+      email: cleanEmail,
+      fullName: fullName || cleanEmail.split('@')[0],
+      monthlySalary: 0,
+      annualSavingsTarget: 0,
+      currency: 'INR',
+      timezone: 'Asia/Kolkata',
+      isOnboarded: false, // Triggers Onboarding Wizard!
+      createdAt: new Date().toISOString(),
+    };
+
+    // Save to registry
+    try {
+      const existingRaw = localStorage.getItem(REGISTRY_KEY);
+      const registry: UserProfile[] = existingRaw ? JSON.parse(existingRaw) : [];
+      registry.push(newProfile);
+      localStorage.setItem(REGISTRY_KEY, JSON.stringify(registry));
+    } catch (e) {
+      console.error(e);
+    }
+
+    loadUserData(userId, newProfile);
     setIsOwnerAuthenticated(true);
+    return true;
+  };
+
+  const signIn = async (email: string): Promise<boolean> => {
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const existingRaw = localStorage.getItem(REGISTRY_KEY);
+      const registry: UserProfile[] = existingRaw ? JSON.parse(existingRaw) : [];
+      const user = registry.find((u) => u.email.toLowerCase() === cleanEmail);
+
+      if (user) {
+        loadUserData(user.id, user);
+        setIsOwnerAuthenticated(true);
+        return true;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return false;
+  };
+
+  const signInWithGoogle = async (email?: string, fullName?: string): Promise<boolean> => {
+    const targetEmail = (email || 'Sumity9432@gmail.com').trim().toLowerCase();
+    const targetName = fullName || targetEmail.split('@')[0];
+
+    try {
+      const existingRaw = localStorage.getItem(REGISTRY_KEY);
+      const registry: UserProfile[] = existingRaw ? JSON.parse(existingRaw) : [];
+      let user = registry.find((u) => u.email.toLowerCase() === targetEmail);
+
+      if (!user) {
+        const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        user = {
+          id: userId,
+          email: targetEmail,
+          fullName: targetName,
+          monthlySalary: 0,
+          annualSavingsTarget: 0,
+          currency: 'INR',
+          timezone: 'Asia/Kolkata',
+          isOnboarded: false,
+          createdAt: new Date().toISOString(),
+        };
+        registry.push(user);
+        localStorage.setItem(REGISTRY_KEY, JSON.stringify(registry));
+      }
+
+      loadUserData(user.id, user);
+      setIsOwnerAuthenticated(true);
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
   };
 
   const logout = () => {
     setIsOwnerAuthenticated(false);
+    try {
+      localStorage.removeItem(CURRENT_SESSION_KEY);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const updateProfile = (updated: Partial<UserProfile>) => {
     setProfile((prev) => ({ ...prev, ...updated }));
   };
 
+  // Complete Onboarding Wizard with Custom Baseline
+  const completeOnboarding = (data: OnboardingData) => {
+    const updatedProf: UserProfile = {
+      ...profile,
+      monthlySalary: data.monthlySalary,
+      annualSavingsTarget: data.annualSavingsTarget,
+      isOnboarded: true,
+    };
+    setProfile(updatedProf);
+
+    // If user entered a first loan during onboarding
+    if (data.firstLoan) {
+      const newLoan: Loan = {
+        id: `loan_${Date.now()}`,
+        loanName: data.firstLoan.loanName,
+        lender: data.firstLoan.lender,
+        originalAmount: data.firstLoan.outstandingAmount,
+        outstandingAmount: data.firstLoan.outstandingAmount,
+        monthlyEmi: data.firstLoan.monthlyEmi,
+        interestRate: 10.5,
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: '2028-12-31',
+        dueDateDay: data.firstLoan.dueDateDay,
+        remainingInstallments: 12,
+        totalInstallments: 12,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      };
+      setLoans([newLoan]);
+    }
+
+    // If user entered a first wishlist goal during onboarding
+    if (data.firstWishlist) {
+      const newWish: WishlistItem = {
+        id: `wish_${Date.now()}`,
+        itemName: data.firstWishlist.itemName,
+        targetPrice: data.firstWishlist.targetPrice,
+        amountSaved: 0,
+        targetDate: data.firstWishlist.targetDate,
+        monthlyContribution: data.firstWishlist.monthlyContribution,
+        priority: 'high',
+        category: 'Personal Goal',
+        isAchieved: false,
+        createdAt: new Date().toISOString(),
+      };
+      setWishlist([newWish]);
+    }
+
+    // Welcome Notification
+    addNotification({
+      title: 'Ledger Setup Complete!',
+      message: `Welcome ${profile.fullName}! Your custom monthly salary (₹${data.monthlySalary.toLocaleString('en-IN')}) and targets are active.`,
+      type: 'system',
+    });
+  };
+
   // Financial Calculations for Selected Month
   const monthlyIncomeTotal = useMemo(() => {
     const monthIncomes = incomes.filter((i) => i.monthYear === selectedMonth);
-    // If no specific extra entries for this month yet, use default monthlySalary
     if (monthIncomes.length === 0) {
-      return profile.monthlySalary;
+      return profile.monthlySalary || 0;
     }
     return monthIncomes.reduce((acc, curr) => acc + Number(curr.amount), 0);
   }, [incomes, selectedMonth, profile.monthlySalary]);
@@ -238,8 +376,7 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return savingsContr + wishlistContr;
   }, [savingsGoals, wishlist]);
 
-  // Formula as requested in specification:
-  // Available Spending Balance = Total Income – Expenses – EMI Commitments – Planned Savings
+  // Formula: Available Spending Balance = Total Income – Expenses – EMI Commitments – Planned Savings
   const availableSpendingBalance = useMemo(() => {
     return (
       monthlyIncomeTotal -
@@ -265,7 +402,7 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [savingsGoals]);
 
   const annualSavingsProgressPct = useMemo(() => {
-    if (profile.annualSavingsTarget <= 0) return 0;
+    if (!profile.annualSavingsTarget || profile.annualSavingsTarget <= 0) return 0;
     return Math.min(100, Math.round((totalAccumulatedSavings / profile.annualSavingsTarget) * 100));
   }, [totalAccumulatedSavings, profile.annualSavingsTarget]);
 
@@ -275,7 +412,7 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .reduce((acc, curr) => acc + Number(curr.amount), 0);
   }, [expenses, selectedMonth]);
 
-  // Income CRUD
+  // CRUD Operations
   const addIncome = (income: Omit<Income, 'id' | 'createdAt'>) => {
     const newEntry: Income = {
       ...income,
@@ -289,7 +426,6 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIncomes((prev) => prev.filter((i) => i.id !== id));
   };
 
-  // Expense CRUD
   const addExpense = (expense: Omit<Expense, 'id' | 'createdAt'>) => {
     const newEntry: Expense = {
       ...expense,
@@ -309,7 +445,6 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setExpenses((prev) => prev.filter((e) => e.id !== id));
   };
 
-  // Loan & EMI CRUD
   const addLoan = (loan: Omit<Loan, 'id' | 'createdAt'>) => {
     const newLoan: Loan = {
       ...loan,
@@ -329,7 +464,6 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setLoans((prev) => prev.filter((l) => l.id !== id));
   };
 
-  // Record EMI Payment with realistic amortization & debt reduction
   const recordEmiPayment = (
     loanId: string,
     amount: number,
@@ -339,19 +473,16 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const loan = loans.find((l) => l.id === loanId);
     if (!loan) return;
 
-    // Calculate interest & principal breakdown
     const { principalComponent, interestComponent } = calculateEmiSplit(
       loan.outstandingAmount,
       loan.interestRate,
       amount
     );
 
-    // New outstanding balance
     const newOutstanding = Math.max(0, loan.outstandingAmount - principalComponent);
     const newRemainingInstallments = Math.max(0, loan.remainingInstallments - 1);
     const newStatus = newRemainingInstallments === 0 || newOutstanding === 0 ? 'completed' : 'active';
 
-    // Update Loan
     setLoans((prev) =>
       prev.map((l) =>
         l.id === loanId
@@ -365,7 +496,6 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       )
     );
 
-    // Add or update EMI payment record
     const paymentRecord: EmiPaymentRecord = {
       id: `pay_${Date.now()}`,
       loanId: loan.id,
@@ -382,7 +512,6 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     setEmiPayments((prev) => [paymentRecord, ...prev]);
 
-    // Push notification
     addNotification({
       title: `EMI Paid: ${loan.loanName}`,
       message: `Successfully recorded EMI of ₹${amount.toLocaleString('en-IN')}. Remaining debt: ₹${newOutstanding.toLocaleString('en-IN')}.`,
@@ -391,7 +520,6 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
-  // Savings CRUD
   const addSavingsGoal = (goal: Omit<SavingsGoal, 'id' | 'createdAt' | 'isCompleted'>) => {
     const newGoal: SavingsGoal = {
       ...goal,
@@ -407,11 +535,10 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       prev.map((s) => {
         if (s.id !== goalId) return s;
         const newTotal = s.currentAmount + amount;
-        const isCompleted = newTotal >= s.targetAmount;
         return {
           ...s,
           currentAmount: newTotal,
-          isCompleted,
+          isCompleted: newTotal >= s.targetAmount,
         };
       })
     );
@@ -423,7 +550,6 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   };
 
-  // Wishlist CRUD
   const addWishlistItem = (item: Omit<WishlistItem, 'id' | 'createdAt' | 'isAchieved'>) => {
     const newItem: WishlistItem = {
       ...item,
@@ -439,11 +565,10 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       prev.map((w) => {
         if (w.id !== itemId) return w;
         const newTotal = w.amountSaved + amount;
-        const isAchieved = newTotal >= w.targetPrice;
         return {
           ...w,
           amountSaved: newTotal,
-          isAchieved,
+          isAchieved: newTotal >= w.targetPrice,
         };
       })
     );
@@ -459,7 +584,6 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   };
 
-  // Notifications
   const markNotificationRead = (id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
@@ -480,25 +604,40 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setNotifications((prev) => [newNotif, ...prev]);
   };
 
-  // Utility Actions
+  const clearAllData = () => {
+    setIncomes([]);
+    setExpenses([]);
+    setLoans([]);
+    setEmiPayments([]);
+    setSavingsGoals([]);
+    setWishlist([]);
+    setNotifications([]);
+    setProfile((prev) => ({
+      ...prev,
+      monthlySalary: 0,
+      annualSavingsTarget: 0,
+    }));
+
+    if (profile?.id) {
+      const uid = profile.id;
+      localStorage.removeItem(`moneymate_${uid}_incomes`);
+      localStorage.removeItem(`moneymate_${uid}_expenses`);
+      localStorage.removeItem(`moneymate_${uid}_loans`);
+      localStorage.removeItem(`moneymate_${uid}_emi_payments`);
+      localStorage.removeItem(`moneymate_${uid}_savings`);
+      localStorage.removeItem(`moneymate_${uid}_wishlist`);
+      localStorage.removeItem(`moneymate_${uid}_notifications`);
+    }
+  };
+
   const resetToDemoData = () => {
-    setProfile(initialProfile);
-    setIncomes(initialIncomes);
-    setExpenses(initialExpenses);
-    setLoans(initialLoans);
-    setEmiPayments(initialEmiPayments);
-    setSavingsGoals(initialSavingsGoals);
-    setWishlist(initialWishlist);
-    setNotifications(initialNotifications);
-    setAuthEmail(OWNER_EMAIL);
-    setIsOwnerAuthenticated(true);
-    localStorage.clear();
+    clearAllData();
   };
 
   const exportDataJSON = () => {
     const fullBackup = {
       version: '1.0',
-      owner: OWNER_EMAIL,
+      owner: profile.email,
       exportedAt: new Date().toISOString(),
       profile,
       incomes,
@@ -514,7 +653,7 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `MoneyMate_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `MoneyMate_${profile.fullName || 'User'}_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -525,10 +664,13 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       value={{
         profile,
         isOwnerAuthenticated,
-        authEmail,
-        loginAsOwner,
+        authEmail: profile.email,
+        signUp,
+        signIn,
+        signInWithGoogle,
         logout,
         updateProfile,
+        completeOnboarding,
         selectedMonth,
         setSelectedMonth,
         incomes,
@@ -566,6 +708,7 @@ export const MoneyMateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         markNotificationRead,
         clearAllNotifications,
         addNotification,
+        clearAllData,
         resetToDemoData,
         exportDataJSON,
       }}

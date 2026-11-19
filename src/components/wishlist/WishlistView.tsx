@@ -164,154 +164,170 @@ export const WishlistView: React.FC = () => {
       </div>
 
       {/* Wishlist Items Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {wishlist.map((item) => {
-          const pct = Math.min(
-            100,
-            Math.round((item.amountSaved / item.targetPrice) * 100)
-          );
-          const remainingAmount = Math.max(0, item.targetPrice - item.amountSaved);
-          const daysLeft = getDaysRemaining(item.targetDate);
+      {wishlist.length === 0 ? (
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-12 text-center">
+          <Gift className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+          <h3 className="text-sm font-bold text-zinc-300">Your wishlist is empty</h3>
+          <p className="text-xs text-zinc-500 max-w-sm mx-auto mt-1 mb-4">
+            Add goals you want to purchase in the future (PlayStation 5, smartphone, laptop, or holiday) to plan safe monthly savings.
+          </p>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition-all shadow-md"
+          >
+            + Add Your First Goal
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {wishlist.map((item) => {
+            const pct = Math.min(
+              100,
+              Math.round((item.amountSaved / item.targetPrice) * 100)
+            );
+            const remainingAmount = Math.max(0, item.targetPrice - item.amountSaved);
+            const daysLeft = getDaysRemaining(item.targetDate);
 
-          // Affordability Check: Does monthlyContribution fit in availableSpendingBalance?
-          const isAffordable = availableSpendingBalance >= item.monthlyContribution;
+            // Affordability Check: Does monthlyContribution fit in availableSpendingBalance?
+            const isAffordable = availableSpendingBalance >= item.monthlyContribution;
 
-          return (
-            <div
-              key={item.id}
-              className={`rounded-2xl border p-5 shadow-lg flex flex-col justify-between transition-all ${
-                item.isAchieved
-                  ? 'bg-emerald-950/20 border-emerald-500/40'
-                  : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
-              }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300">
-                      {getItemIcon(item.itemName, item.category)}
+            return (
+              <div
+                key={item.id}
+                className={`rounded-2xl border p-5 shadow-lg flex flex-col justify-between transition-all ${
+                  item.isAchieved
+                    ? 'bg-emerald-950/20 border-emerald-500/40'
+                    : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300">
+                        {getItemIcon(item.itemName, item.category)}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white leading-tight">
+                          {item.itemName}
+                        </h3>
+                        <span className="text-[10px] text-zinc-400 block mt-0.5">
+                          {item.category}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white leading-tight">
-                        {item.itemName}
-                      </h3>
-                      <span className="text-[10px] text-zinc-400 block mt-0.5">
-                        {item.category}
-                      </span>
+
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        item.priority === 'high'
+                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          : 'bg-zinc-800 text-zinc-300'
+                      }`}
+                    >
+                      {item.priority}
+                    </span>
+                  </div>
+
+                  {/* Price and Progress */}
+                  <div className="my-4">
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <span className="text-[10px] text-zinc-500 block">Accumulated</span>
+                        <span className="text-lg font-bold text-emerald-400 font-mono">
+                          {formatINR(item.amountSaved)}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-zinc-500 block">Target Price</span>
+                        <span className="text-sm font-semibold text-zinc-200 font-mono">
+                          {formatINR(item.targetPrice)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="w-full bg-zinc-800 rounded-full h-2 mt-2 overflow-hidden">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          item.isAchieved
+                            ? 'bg-emerald-400'
+                            : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1.5">
+                      <span>{pct}% Funded</span>
+                      <span>{daysLeft > 0 ? `${daysLeft} days left` : 'Target reached'}</span>
                     </div>
                   </div>
 
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      item.priority === 'high'
-                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        : 'bg-zinc-800 text-zinc-300'
+                  {/* Affordability Advisor Pill */}
+                  <div
+                    className={`p-2.5 rounded-xl border text-xs flex items-center gap-2 mb-3 ${
+                      item.isAchieved
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                        : isAffordable
+                        ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'
+                        : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
                     }`}
                   >
-                    {item.priority}
-                  </span>
-                </div>
-
-                {/* Price and Progress */}
-                <div className="my-4">
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <span className="text-[10px] text-zinc-500 block">Accumulated</span>
-                      <span className="text-lg font-bold text-emerald-400 font-mono">
-                        {formatINR(item.amountSaved)}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-zinc-500 block">Target Price</span>
-                      <span className="text-sm font-semibold text-zinc-200 font-mono">
-                        {formatINR(item.targetPrice)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="w-full bg-zinc-800 rounded-full h-2 mt-2 overflow-hidden">
-                    <div
-                      className={`h-2 rounded-full transition-all duration-500 ${
-                        item.isAchieved
-                          ? 'bg-emerald-400'
-                          : 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                      }`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1.5">
-                    <span>{pct}% Funded</span>
-                    <span>{daysLeft > 0 ? `${daysLeft} days left` : 'Target reached'}</span>
-                  </div>
-                </div>
-
-                {/* Affordability Advisor Pill */}
-                <div
-                  className={`p-2.5 rounded-xl border text-xs flex items-center gap-2 mb-3 ${
-                    item.isAchieved
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                      : isAffordable
-                      ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'
-                      : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
-                  }`}
-                >
-                  {item.isAchieved ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                  ) : isAffordable ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                  ) : (
-                    <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
-                  )}
-
-                  <div className="text-[11px] leading-tight">
                     {item.isAchieved ? (
-                      <span className="font-bold">Afforded & Achieved! 🎉</span>
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
                     ) : isAffordable ? (
-                      <span>
-                        <strong>Safe to Save:</strong> {formatINR(item.monthlyContribution)}/mo fits in your available balance.
-                      </span>
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
                     ) : (
-                      <span>
-                        <strong>Budget Tight:</strong> Monthly {formatINR(item.monthlyContribution)} exceeds safe balance.
-                      </span>
+                      <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
                     )}
+
+                    <div className="text-[11px] leading-tight">
+                      {item.isAchieved ? (
+                        <span className="font-bold">Afforded & Achieved! 🎉</span>
+                      ) : isAffordable ? (
+                        <span>
+                          <strong>Safe to Save:</strong> {formatINR(item.monthlyContribution)}/mo fits in your available balance.
+                        </span>
+                      ) : (
+                        <span>
+                          <strong>Budget Tight:</strong> Monthly {formatINR(item.monthlyContribution)} exceeds safe balance.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {item.notes && (
+                    <p className="text-[11px] text-zinc-500 italic mb-2 line-clamp-1">
+                      &quot;{item.notes}&quot;
+                    </p>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="pt-3 border-t border-zinc-800 flex items-center justify-between">
+                  <button
+                    onClick={() => deleteWishlistItem(item.id)}
+                    className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-zinc-800 transition-colors"
+                    title="Remove Goal"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setDepositModalItem(item);
+                        setDepositAmount(String(item.monthlyContribution || '5000'));
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition-all shadow-md active:scale-95"
+                    >
+                      + Add Rupee Deposit
+                    </button>
                   </div>
                 </div>
-
-                {item.notes && (
-                  <p className="text-[11px] text-zinc-500 italic mb-2 line-clamp-1">
-                    &quot;{item.notes}&quot;
-                  </p>
-                )}
               </div>
-
-              {/* Action Buttons */}
-              <div className="pt-3 border-t border-zinc-800 flex items-center justify-between">
-                <button
-                  onClick={() => deleteWishlistItem(item.id)}
-                  className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-zinc-800 transition-colors"
-                  title="Remove Goal"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setDepositModalItem(item);
-                      setDepositAmount(String(item.monthlyContribution || '5000'));
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition-all shadow-md active:scale-95"
-                  >
-                    + Add Rupee Deposit
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Deposit to Wishlist Modal */}
       {depositModalItem && (

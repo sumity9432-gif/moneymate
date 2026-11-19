@@ -344,16 +344,22 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
           <div className="mt-3">
             <div className="text-sm font-semibold text-zinc-200">
-              Target: {formatINR(profile.annualSavingsTarget)}
+              {profile.annualSavingsTarget > 0
+                ? `Target: ${formatINR(profile.annualSavingsTarget)}`
+                : 'Target Not Set'}
             </div>
             <div className="w-full bg-zinc-800 rounded-full h-2 mt-2 overflow-hidden">
               <div
                 className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, annualSavingsProgressPct)}%` }}
+                style={{
+                  width: `${profile.annualSavingsTarget > 0 ? Math.min(100, annualSavingsProgressPct) : 0}%`,
+                }}
               />
             </div>
             <p className="mt-1.5 text-[11px] text-zinc-400">
-              {formatINR(totalAccumulatedSavings)} achieved so far
+              {profile.annualSavingsTarget > 0
+                ? `${formatINR(totalAccumulatedSavings)} achieved so far`
+                : 'Click to configure your target'}
             </p>
           </div>
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -529,18 +535,24 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </p>
 
             <div className="space-y-3">
-              {activeLoans.slice(0, 3).map((loan) => (
-                <div key={loan.id} className="p-3 rounded-xl bg-zinc-950 border border-zinc-800">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-zinc-200 truncate">{loan.loanName}</span>
-                    <span className="text-xs font-bold text-amber-400">{formatINR(loan.monthlyEmi)}/mo</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1">
-                    <span>Due: {loan.dueDateDay}th of month</span>
-                    <span>{loan.remainingInstallments} EMIs left</span>
-                  </div>
+              {activeLoans.length === 0 ? (
+                <div className="py-8 text-center text-xs text-zinc-500">
+                  No active loans or EMIs recorded.
                 </div>
-              ))}
+              ) : (
+                activeLoans.slice(0, 3).map((loan) => (
+                  <div key={loan.id} className="p-3 rounded-xl bg-zinc-950 border border-zinc-800">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-zinc-200 truncate">{loan.loanName}</span>
+                      <span className="text-xs font-bold text-amber-400">{formatINR(loan.monthlyEmi)}/mo</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 mt-1">
+                      <span>Due: {loan.dueDateDay}th of month</span>
+                      <span>{loan.remainingInstallments} EMIs left</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
